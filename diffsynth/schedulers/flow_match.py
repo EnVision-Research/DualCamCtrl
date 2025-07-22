@@ -67,6 +67,7 @@ class FlowMatchScheduler():
             timestep = timestep.cpu()
         timestep_id = torch.argmin((self.timesteps - timestep).abs())
         sigma = self.sigmas[timestep_id]
+        print(f"Sample shape: {original_samples.shape}, Noise shape: {noise.shape}, Sigma: {sigma}")
         sample = (1 - sigma) * original_samples + sigma * noise
         return sample
     
