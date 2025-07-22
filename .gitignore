@@ -3,3 +3,6 @@ models/
 output_projection_videos/
 output_rgb/
 output_rgb_crop/
+._____temp/
+.vscode/
+__pycache__/
