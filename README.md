@@ -3,7 +3,7 @@
 Clone repo and create an enviroment with Python 3.11:
 
 ```
-git clone 
+git clone https://github.com/soyouthinkyoucantell/DualCamCtrl.git
 conda create -n dualcamctrl python=3.11
 conda activate dualcamctrl
 ```
