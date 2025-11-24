@@ -8,4 +8,4 @@ diffsynth.egg-info/
 .claude/
 data_prepare/
 apps/
-dependency/
+dependency
