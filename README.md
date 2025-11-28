@@ -109,7 +109,8 @@ DualCamCtrl/
 ├── demo_dataset/                # Small demo dataset strcture
 ├── demo_pic/                    # Demo images for quick inference
 ├── diffsynth/                   
-├── examples/                    
+├── examples/   
+├── ....                 
 ├── requirements.txt             
 ├── README.md                    
 └── setup.py                    
