@@ -17,6 +17,14 @@
 
 \* Equal Contribution. ✉Corresponding author.
 
+<p align="center">
+  <video src="assets/dualcamctrl_demo_open.mp4" controls autoplay loop muted width="100%"></video>
+  <br>
+  <em>DualCamCtrl's results of Open-world Camera Controlled Generation</em>
+</p>
+
+
+
 ## 🧩 Contents
 
 #### 1. [📰 News](#📰-news)
