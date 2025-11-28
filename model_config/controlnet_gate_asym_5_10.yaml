@@ -18,7 +18,7 @@ dit:
   rgb_inject_blocks: [0, 1, 2, 3, 4]
   depth_inject_blocks: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
   use_gate_3d_linear: true
-  update: true
+  update: false
   control_block_index:
     [
       0,

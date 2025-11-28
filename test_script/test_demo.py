@@ -23,11 +23,12 @@ from omegaconf import OmegaConf
 from examples.wanvideo.model_training.train_with_accelerate import WanTrainingModule
 from examples.wanvideo.model_training.args import wan_parser
 from PIL import Image
-import numpy as np 
+import numpy as np
 import cv2
 from packaging import version as pver
 
-def get_relative_pose( cam_params):
+
+def get_relative_pose(cam_params):
     # Always zero_init the first camera pose
     abs_w2cs = [cam_param.w2c_mat for cam_param in cam_params]
     abs_c2ws = [cam_param.c2w_mat for cam_param in cam_params]
@@ -104,8 +105,8 @@ def ray_condition(K, c2w, H, W, device, flip_flag=None):
 state_dir = "/data/user/hongfeizhang/experiments/Wan/10-08-train-fuse-I2V-480-mask-depth-70-3e6-5-10"
 checkpoint = "1600"
 weight_dir = os.path.join(state_dir, f"checkpoint-step-{checkpoint}")
-config_path = 'model_config/controlnet_gate_asym_5_10.yaml'
-args_path = 'train_config/normal_config/i2v_train_fuse_5_10_70_3e6.yaml'
+config_path = "model_config/controlnet_gate_asym_5_10.yaml"
+args_path = "train_config/normal_config/i2v_train_fuse_5_10_70_3e6.yaml"
 parser = wan_parser()
 import yaml
 
@@ -122,8 +123,8 @@ files = {
     "route66.jpg": "A straight two-lane highway stretches into the distance, narrowing to a point on the horizon. The asphalt is slightly worn, with faint cracks and darker patches where tires have passed for years. Yellow double lines run down the center, flanked by white edge lines, and near the foreground a large white highway emblem is painted directly on the road surface, its curves and numbers crisp against the dark pavement.On both sides of the road lies a dry, open landscape—low scrub bushes, sandy soil, and scattered tufts of grass, all in muted browns and grays. There are a few fence posts and tiny hints of structures far away, but mostly the land feels empty and wide.",
     "seaside.png": "High aerial view over a British seaside town on a sunny afternoon. Turquoise sea with gentle waves, a long wooden pier stretching into the water, sandy beach and a bustling promenade with parked cars. Foreground: curved coastal road and pastel, terraced houses with orange roofs. Midground: beach, pools and small buildings. Background: white cliffs and rolling hills fading into haze. Few fluffy clouds, bright natural light, crisp visibility. Slow tilt-down and rightward pan, subtle zoom for parallax. Natural color grade, 4K, 24fps, steady gimbal/drone feel, light wind ambience and distant seagulls.",
 }
-nprom = 'Vibrant colors, overexposed, static, blurry details, subtitles, poorly drawn style or artwork, still image, overall grayish, worst quality, low quality, JPEG artifacts, ugly, incomplete, extra fingers, poorly drawn hands or face, deformed, disfigured, malformed limbs, fused fingers, static image, messy background, three legs, many people in the background, walking backward.'
-device = 'cuda'
+nprom = "Vibrant colors, overexposed, static, blurry details, subtitles, poorly drawn style or artwork, still image, overall grayish, worst quality, low quality, JPEG artifacts, ugly, incomplete, extra fingers, poorly drawn hands or face, deformed, disfigured, malformed limbs, fused fingers, static image, messy background, three legs, many people in the background, walking backward."
+device = "cuda"
 
 # Getting the model ready (here for simplicity we just use the training class)
 # Note that we don't skip the downloading process of origin DiT here though we won't use it. So if you don't need it at all, you may modify the from_pretrained methods.
@@ -140,12 +141,11 @@ model = WanTrainingModule(
     args=args,
 )
 
-state_path = os.path.join(weight_dir, "pytorch_model")
-# state_dict = get_fp32_state_dict_from_zero_checkpoint(weight_dir)
-# load_state = model.load_state_dict(state_dict, strict=True)
-# assert (
-#     len(load_state.unexpected_keys) == 0
-# ), f"unexpected_keys keys: {load_state.unexpected_keys}"
+state_path = "checkpoints"
+weight_path = os.path.join(state_path, "dualcamctrl_diffusion_transformer.pt")
+state_dict = torch.load(weight_path)
+load_state = model.load_state_dict(state_dict, strict=True)
+print(f"Load state dict done with {load_state}")
 model = accelerator.prepare(model)
 
 # demo path
@@ -156,7 +156,8 @@ os.makedirs(output_path, exist_ok=True)
 frame_len = 61
 _height, _width = 320, 480
 num_inference_step = 50
-ori_h, ori_w = 360,640 # This is predefined for our demo images
+ori_h, ori_w = 360, 640  # This is predefined for our demo images
+
 
 def decode_image(image_tensor):
     byte_data = image_tensor.numpy().tobytes()
@@ -176,16 +177,13 @@ for file_name, prompt in files.items():
     prefix = os.path.splitext(file_name)[0]
     data_file = os.path.join(file_root, f"{prefix}.torch")
     data = torch.load(data_file)
-    print(f"Data keys{data.keys()}")
-    new_data = {"cameras": data["cameras"]}
+    # new_data = {"cameras": data["cameras"]}
+    # torch.save(new_data, data_file)
 
-    # 覆盖写回
-    torch.save(new_data, data_file)
-
-    print("After:", torch.load(data_file).keys())
+    # print("After:", torch.load(data_file).keys())
     frame_indices = range(
         0, frame_len
-    )  # You may re-sample the plucker embedding to adjust the length here
+    )  # You may re-sample the plucker embedding and adjust the length here
     cameras_info = data["cameras"]
     cameras_info = torch.concat(
         [torch.zeros(cameras_info.shape[0], 1), cameras_info], dim=1
@@ -240,17 +238,14 @@ for file_name, prompt in files.items():
     world_size = accelerator.num_processes
 
     with torch.no_grad():
-        
-        input_data={}
-        
+
+        input_data = {}
+
         img = Image.open(img_path).convert("RGB").resize((_width, _height))
         depth_img = Image.open(depth_path).convert("L").resize((_width, _height))
-        
-        
-        # T C H W 
-        img_tensor = (
-            torchvision.transforms.ToTensor()(img).unsqueeze(0).to(device)
-        )
+
+        # T C H W
+        img_tensor = torchvision.transforms.ToTensor()(img).unsqueeze(0).to(device)
         depth_tensor = (
             torchvision.transforms.ToTensor()(depth_img)
             .unsqueeze(0)
@@ -258,25 +253,24 @@ for file_name, prompt in files.items():
             .repeat(1, 3, 1, 1)
         )
 
-        
-        # Get data ready 
+        # Get data ready
         input_data["input_image"] = img_tensor
         input_data["input_control"] = depth_tensor
         input_data["plucker_embedding"] = plucker_embedding
-        input_data['prompt'] = [prompt]
-        input_data['negative_prompt'] =  [nprom]
-        input_data['num_frames'] = frame_len
+        input_data["prompt"] = [prompt]
+        input_data["negative_prompt"] = [nprom]
+        input_data["num_frames"] = frame_len
         # Prompt
         videos = model.pipe(
-            prompt=input_data['prompt'],
-            negative_prompt=input_data['negative_prompt'],
+            prompt=input_data["prompt"],
+            negative_prompt=input_data["negative_prompt"],
             batch_size=1,
             input_image=input_data["input_image"],
             input_control=input_data["input_control"],
             extra_images=None,
             extra_image_frame_index=None,
             plucker_embedding=input_data["plucker_embedding"],
-            seed=0,
+            seed=42,
             t2v=False,
             height=_height,
             width=_width,
@@ -306,7 +300,7 @@ for file_name, prompt in files.items():
                 if k == "images"
                 else input_data["input_control"]
             )
-            # zero-pad here 
+            # zero-pad here
             last_valid = torch.zeros_like(input_frames[0])
             for i in range(len(input_frames)):
                 if input_frames[i] is None:
@@ -320,9 +314,7 @@ for file_name, prompt in files.items():
             )
 
             # Save video
-            for _input_frames,  _predict_video in zip(
-                input_frames,  v
-            ):
+            for _input_frames, _predict_video in zip(input_frames, v):
                 _save_root = os.path.join(
                     save_path,
                     f"{prefix}",

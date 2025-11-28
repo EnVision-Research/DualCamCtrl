@@ -12,3 +12,4 @@ dependency
 !diffsynth/
 !diffsynth/models/
 !diffsynth/models/camera_pose_encoder/
+checkpoints
