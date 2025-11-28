@@ -107,3 +107,8 @@ cd .. # make sure you are at the root dir
 export PYTHONPATH=.
 python -m test_script.test_demo
 ```
+
+## 🔥 Training
+
+> Training details coming soon… stay tuned! 🚀
+
