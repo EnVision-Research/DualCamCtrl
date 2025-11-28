@@ -15,8 +15,18 @@
 
 
 
-
 \* Equal Contribution. ✉Corresponding author.
+
+## 🧩 Contents
+
+#### 1. [📰 News](#📰-news)
+####  2. [⚙️ TODO](#⚙️-todo)
+####  3. [🎯 Overview](#🎯-overview)
+####  4. [🔧 Installation](#🔧-installation)
+####  5. [🔮 Inference](#🔮-inference)
+####  6. [🔥 Training](#🔥-training)
+
+
 ## 📰 News
 
 ✅ 2025.11 — Released inference pipeline & demo dataset ✔️
@@ -29,7 +39,11 @@
 ## 🎯 Overview
 
 ### Abstract
-This paper presents DualCamCtrl, a novel end-to-end diffusion model for camera-controlled video generation. Recent works have advanced this field by representing camera poses as ray-based conditions, yet they often lack sufficient scene understanding and geometric awareness. DualCamCtrl specifically targets this limitation by introducing a dual-branch framework that mutually generates camera-consistent RGB and depth sequences. To harmonize these two modalities, we further propose the SIGMA (SemantIc Guided Mutual Alignment) mechanism, which performs RGB–depth fusion in a semantics-guided and mutually reinforced manner. These designs collectively enable DualCamCtrl to better disentangle appearance and geometry modeling, generating videos that more faithfully adhere to the specified camera trajectories. Additionally, we analyze and reveal the distinct influence of depth and camera poses across denoising stages and further demonstrate that early and late stages play complementary roles in forming global structure and refining local details. Extensive experiments demonstrate that DualCamCtrl achieves more consistent camera-controlled video generation with over 40% reduction in camera motion errors compared with prior methods.
+This paper presents **DualCamCtrl**, a novel end-to-end diffusion model for camera-controlled video generation. Recent works have advanced this field by representing camera poses as ray-based conditions, yet they often lack sufficient scene understanding and geometric awareness.
+**DualCamCtrl** specifically targets this limitation by introducing a dual-branch framework that mutually generates camera-consistent RGB and depth sequences.
+To harmonize these two modalities, we further propose the **S**emant**I**c **G**uided **M**utual **A**lignment (SIGMA) mechanism, which performs RGB–depth fusion in a semantics-guided and mutually reinforced manner.
+These designs collectively enable **DualCamCtrl** to better disentangle appearance and geometry modeling, generating videos that more faithfully adhere to the specified camera trajectories. Extensive experiments demonstrate that **DualCamCtrl** achieves more consistent camera-controlled video generation **with over 40% reduction** on camera motion errors compared with prior methods.
+
 
 ### Results
 
@@ -110,5 +124,4 @@ python -m test_script.test_demo
 
 ## 🔥 Training
 
-> Training details coming soon… stay tuned! 🚀
-
+### Training details coming soon… Stay tuned! 🚀
