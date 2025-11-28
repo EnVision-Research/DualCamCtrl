@@ -1,7 +1,7 @@
 
 #  DualCamCtrl: Dual-Branch Diffusion Model for Geometry-Aware Camera-Controlled Video Generation
 
-[![Page](https://img.shields.io/badge/github-project_page-blue?logo=github)](https://soyouthinkyoucantell.github.io/dualcamctrl-page/)
+[![Page](https://img.shields.io/badge/github-Project_page-blue?logo=github)](https://soyouthinkyoucantell.github.io/dualcamctrl-page/)
 [![Paper](https://img.shields.io/badge/arXiv-Paper-b31b1b?logo=arxiv&logoColor=white)](#)
 [![Ckpt](https://img.shields.io/badge/🤗%20HuggingFace-Checkpoint%20-yellow)](https://huggingface.co/FayeHongfeiZhang/DualCamCtrl/tree/main)
 
