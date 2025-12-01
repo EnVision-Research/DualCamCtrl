@@ -14,3 +14,4 @@ dependency
 !diffsynth/models/camera_pose_encoder/
 checkpoints
 gradio
+.gradio
