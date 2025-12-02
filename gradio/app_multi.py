@@ -3,6 +3,7 @@ from accelerate import Accelerator
 from examples.wanvideo.model_training.train_with_accelerate import WanTrainingModule
 from omegaconf import OmegaConf
 import os
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch, Accelerator
 import gradio as gr
 import torchvision
 from pathlib import Path
@@ -203,7 +204,6 @@ def ray_condition(K, c2w, H, W, device, flip_flag=None):
     return plucker
 
 
-
 args_path = "train_config/normal_config/i2v_train_fuse_5_10_70_3e6.yaml"
 config_path = "model_config/controlnet_gate_asym_5_10.yaml"
 
@@ -224,11 +224,19 @@ model = WanTrainingModule(
     args=args,
 )
 
-
 weight_path = "checkpoints/dualcamctrl_diffusion_transformer.pt"
-if os.path.exists(weight_path):
-    state_dict = torch.load(weight_path, map_location="cpu")
+if torch.cuda.device_count() > 1:
+    model = load_checkpoint_and_dispatch(
+        model,
+        weight_path,
+        device_map="auto",
+        offload_folder="offload",
+        dtype=torch.bfloat16,
+    )
+else:
+    state_dict = torch.load(weight_path, map_location=device)
     model.load_state_dict(state_dict, strict=True)
+    model.to(device)
 
 model.eval()
 model = accelerator.prepare(model)
@@ -300,7 +308,7 @@ def generate_video(
     }
 
     with torch.no_grad():
-        videos = model.pipe(
+        videos = accelerator.unwrap_model(model).pipe(
             prompt=input_data["prompt"],
             negative_prompt=input_data["negative_prompt"],
             batch_size=1,
