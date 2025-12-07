@@ -1,9 +1,9 @@
 # model:
-model_config_path: "/data/user/hongfeizhang/hongfei_workspace/DiffSynth-Studio/model_config/controlnet_gate_asym_5_10.yaml"
+model_config_path: "model_config/controlnet_gate_asym_5_10.yaml"
 model_id_with_origin_paths: "PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:diffusion_pytorch_model*.safetensors,PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:models_t5_umt5-xxl-enc-bf16.pth,PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:Wan2.1_VAE.pth,PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth"
 pipe_name: "wan_video_camera"
-training_state_dir: '/data/user/hongfeizhang/experiments/Wan/09-10-14-36-train-depth-I2V-480p-mask-depth-loss/checkpoint-step-2000'
-output_path: "/data/user/hongfeizhang/experiments/Wan/11-18-train-fuse-I2V-480-mask-depth-30-3e6-5-10"
+training_state_dir: 'your_training_state_dir'
+output_path: "your_out_path"
 
 # Trainable models
 trainable_models: "dit"
@@ -38,7 +38,7 @@ use_gradient_checkpointing: true
 no_extra_frame: true # you may use this param with complementation like SEVA's M-in-N-out schema
 warmup_steps: 0
 return_control_latents: true
-drop_loss_rate: 30
+drop_loss_rate: 70
 
 # validate 
 init_validate: true

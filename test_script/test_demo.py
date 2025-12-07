@@ -1,24 +1,9 @@
-from accelerate.utils import set_seed
-import imageio
-import warnings
 import torchvision
-import argparse
-import json
-from peft import LoraConfig, inject_adapter_in_model
-import pandas as pd
-from tqdm import tqdm
-from accelerate import Accelerator, accelerator, DeepSpeedPlugin
-from diffsynth import save_video, save_frames
-from safetensors.torch import load_file
+from accelerate import Accelerator, accelerator
+from diffsynth import save_video
 import torch
 import os
-import json
-from deepspeed.utils.zero_to_fp32 import (
-    load_state_dict_from_zero_checkpoint,
-    get_fp32_state_dict_from_zero_checkpoint,
-)
 from examples.dataset.realestate10k import Camera
-from diffsynth.pipelines.wan_video_new_camera import WanVideoCameraPipeline, ModelConfig
 from omegaconf import OmegaConf
 from examples.wanvideo.model_training.train_with_accelerate import WanTrainingModule
 from examples.wanvideo.model_training.args import wan_parser
@@ -29,19 +14,39 @@ from packaging import version as pver
 
 
 def get_relative_pose(cam_params):
+    """
+    Convert absolute camera poses to relative poses with respect to the first camera.
+
+    Args:
+        cam_params: List of camera parameters with w2c_mat and c2w_mat attributes
+
+    Returns:
+        np.array: Relative camera poses with shape (N, 4, 4) where first pose is identity
+    """
+    if not cam_params:
+        raise ValueError("cam_params cannot be empty")
+
     # Always zero_init the first camera pose
     abs_w2cs = [cam_param.w2c_mat for cam_param in cam_params]
     abs_c2ws = [cam_param.c2w_mat for cam_param in cam_params]
+
+    # Distance from origin (can be parameterized in the future)
     cam_to_origin = 0
     target_cam_c2w = np.array(
-        [[1, 0, 0, 0], [0, 1, 0, -cam_to_origin], [0, 0, 1, 0], [0, 0, 0, 1]]
+        [[1, 0, 0, 0], [0, 1, 0, -cam_to_origin], [0, 0, 1, 0], [0, 0, 0, 1]],
+        dtype=np.float32,
     )
+
+    # Transform from absolute to relative coordinates
     abs2rel = target_cam_c2w @ abs_w2cs[0]
-    ret_poses = [
-        target_cam_c2w,
-    ] + [abs2rel @ abs_c2w for abs_c2w in abs_c2ws[1:]]
-    ret_poses = np.array(ret_poses, dtype=np.float32)
-    return ret_poses
+
+    # First camera becomes identity, others are transformed to relative coordinates
+    ret_poses = [target_cam_c2w] + [abs2rel @ abs_c2w for abs_c2w in abs_c2ws[1:]]
+
+    # More efficient array creation using vstack for better performance
+    ret_poses = np.vstack([pose[np.newaxis, :, :] for pose in ret_poses])
+
+    return ret_poses.astype(np.float32)
 
 
 def custom_meshgrid(*args):
@@ -101,15 +106,9 @@ def ray_condition(K, c2w, H, W, device, flip_flag=None):
     return plucker
 
 
-# Load the model
-state_dir = "/data/user/hongfeizhang/experiments/Wan/10-08-train-fuse-I2V-480-mask-depth-70-3e6-5-10"
-checkpoint = "1600"
-weight_dir = os.path.join(state_dir, f"checkpoint-step-{checkpoint}")
 config_path = "model_config/controlnet_gate_asym_5_10.yaml"
 args_path = "train_config/normal_config/i2v_train_fuse_5_10_70_3e6.yaml"
 parser = wan_parser()
-import yaml
-
 yaml_args = OmegaConf.load(args_path)
 print(f"yaml args: {yaml_args}")
 args = yaml_args
@@ -153,6 +152,7 @@ file_root = "demo_pic"
 output_path = os.path.join("output", "test_demo")
 os.makedirs(output_path, exist_ok=True)
 
+# Predefine shape
 frame_len = 61
 _height, _width = 320, 480
 num_inference_step = 50
@@ -177,10 +177,7 @@ for file_name, prompt in files.items():
     prefix = os.path.splitext(file_name)[0]
     data_file = os.path.join(file_root, f"{prefix}.torch")
     data = torch.load(data_file)
-    # new_data = {"cameras": data["cameras"]}
-    # torch.save(new_data, data_file)
 
-    # print("After:", torch.load(data_file).keys())
     frame_indices = range(
         0, frame_len
     )  # You may re-sample the plucker embedding and adjust the length here
