@@ -7,11 +7,11 @@ We use the [RealEstate10K](https://google.github.io/realestate10k/) dataset to t
 
 #### 1.2 Captions Preprocessing 
 
-We utilize the [Qwen-Image](https://github.com/QwenLM/Qwen3-VL) repo to preprocess the captions. Please refer to [this json](../demo_dataset/captions/0a0a998c176713fd/captions.json) for a sample caption json. We generate the captions for every 60 images in the dataset to ensure that every sampled video has at least one caption. It's a bit slow, it tooks us for about 3-4 days to generate the captions for the whole dataset on 4 A6000 GPUs.
+We utilize the [Qwen-Image](https://github.com/QwenLM/Qwen3-VL) repo to preprocess the captions. Please refer to [this json](https://github.com/EnVision-Research/DualCamCtrl/blob/main/demo_dataset/test_captions/0a0a998c176713fd/captions.json) for a sample caption json. We generate the captions for every 60 images in the dataset to ensure that every sampled video has at least one caption. It's a bit slow, it tooks us for about 3-4 days to generate the captions for the whole dataset on 4 A6000 GPUs.
 
 #### 1.3 Depth Generation
 
-We utilize the [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything) (VDA) to generate the depth for video (under the setting of FP16 and ViT-L to balance both speed and precision). You may refer to [this video](../demo_dataset/depth/0a0a998c176713fd/depth_vitl_fp16.mp4) for a sample video. It took us for about 2-3 days to generate the depth for the whole dataset on 4 A6000 GPUs.
+We utilize the [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything) (VDA) to generate the depth for video (under the setting of FP16 and ViT-L to balance both speed and precision). You may refer to [this file](https://github.com/EnVision-Research/DualCamCtrl/blob/main/demo_dataset/test_video_depth_maps/0a0a998c176713fd/depth_vitl_fp16.mp4) for a sample video. It took us for about 2-3 days to generate the depth for the whole dataset on 4 A6000 GPUs.
 
 #### 1.4 Format the dataset 
 
@@ -73,7 +73,7 @@ bash train_script/I2V/train_depth.sh
 
 ##### Fusion Stage 
 
-Setting the 'training_state_dir' args in [this yaml](../train_config/normal_config/i2v_train_depth.yaml) to the directory where you save the ckpt of decoupled stage, then:
+Setting the 'training_state_dir' args in [this yaml](../train_config/normal_config/i2v_train_depth.yaml) to the directory where you save the ckpt of Decoupled stage, then:
 ```
 bash train_script/I2V/train_fuse.sh
 ```
