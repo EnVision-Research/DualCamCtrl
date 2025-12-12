@@ -7,7 +7,7 @@ We use the [RealEstate10K](https://google.github.io/realestate10k/) dataset to t
 
 #### 1.2 Captions Preprocessing 
 
-We utilize the [Qwen-Image](https://github.com/QwenLM/Qwen3-VL) repo to preprocess the captions. Please refer to [this json](https://github.com/EnVision-Research/DualCamCtrl/blob/main/demo_dataset/test_captions/0a0a998c176713fd/captions.json) for a sample caption json. We generate the captions for every 60 images in the dataset to ensure that every sampled video has at least one caption. It's a bit slow, it tooks us for about 3-4 days to generate the captions for the whole dataset on 4 A6000 GPUs.
+We utilize the [Qwen-Image](https://github.com/QwenLM/Qwen3-VL) repo to preprocess the captions. Please refer to [this json](https://github.com/EnVision-Research/DualCamCtrl/blob/main/demo_dataset/test_captions/0a0a998c176713fd/captions.json) for a sample caption json. We generate captions for every 60 image in the dataset to ensure that every sampled video has at least one caption. It's a bit slow, which tooks us for about 3-4 days to generate the captions for the whole dataset on 4 A6000 GPUs.
 
 #### 1.3 Depth Generation
 
@@ -40,9 +40,6 @@ camera_infos min: -0.7278759479522705, max: 0.9999988675117493
 prompt: The video depicts a cozy and well-decorated bedroom...
 ```
 
-
-
-
 ### 2. Training 
 
 
@@ -51,7 +48,7 @@ Some important args:
 - output_path: the directory where you save the ckpt
 - freeze_main_except, freeze_control_except: the part of the model you want to freeze
 - learning_rate: 3e-6, higher learning rate would lead to worse stability of training
-- init_validate: whether to start a validate before the training
+- init_validate: whether to start a validation before training
 - drop_loss_rate: the rate of drop loss for the geometry signal
 - use_image_depth: false, we don't use the image depth in the training process since it would lead to severe temporal discontinuity
 - copy_control_weights: true at the decoupled stage and false at the fusion stage
@@ -80,7 +77,7 @@ bash train_script/I2V/train_fuse.sh
 
 #### 2.4 Text to Video 
 
-This repo mainly focus on the image to video task, but we also provide the text to video task. You alter the 't2v' args in both yaml files to 'true' to enable the text to video task, save then as 't2v_train_depth.yaml' and 't2v_train_fuse_5_10_70_3e6.yaml' respectively, then run the bash script:
+This repo mainly focus on the image to video task, but we also provide script for the text to video task. You may alter the 't2v' args in both yaml files to 'true' to enable training of text to video task, save them later as 't2v_train_depth.yaml' and 't2v_train_fuse_5_10_70_3e6.yaml' respectively, then run the bash script:
 
 ```
 bash train_script/T2V/train_depth.sh
@@ -89,7 +86,7 @@ bash train_script/T2V/train_fuse.sh
 
 #### 2.5 Training Details
 
-We trained the model on 4 H100 GPUS with a effective batch size of 8 for both stage. For the first stages, it converged with 10k iterations, for the second stage, it will converged with ~70k iterations.
+We trained the model on 4 H100 GPUS with a effective batch size of 8 for both stage. For the first stage, it converged within 10k iterations, for the second stage, it will converge within ~70k iterations.
 
 
 #### 2.6 Help us improve the training process description
@@ -97,6 +94,6 @@ We trained the model on 4 H100 GPUS with a effective batch size of 8 for both st
 Feel free to [open an issue](https://github.com/EnVision-Research/DualCamCtrl/issues) if you have any questions regarding the training process. It will help us for better implement the training process description to further benefit the community.
 
 
-Best Regards,
+**Best Regards,**
 
-All authors of DualCamCtrl
+**All authors of DualCamCtrl**
