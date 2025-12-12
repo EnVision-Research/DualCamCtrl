@@ -110,13 +110,13 @@ pip install numpy==1.26.4 peft accelerate==1.9.0 decord==0.6.0 deepspeed diffuse
 
 ### How to Get Input Depth (For Inference)
 
-We utilize [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything)(VDA) to predict both image depth and video depth. For inference, only image depth is needed, so you could run VDA with a single image input. 
+We utilize [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything) (VDA) to predict both image depth and video depth. For inference, only image depth is needed, so you could run VDA with a single image input. 
 
 
 
 ### Checkpoints
 
-Get the checkpoints from the HuggingFace repo:&nbsp; [DualCamCtrl Checkpoints](https://huggingface.co/FayeHongfeiZhang/DualCamCtrl) and put it the checkpoints dir (You could just simply download the HF repo which contains a dir named 'checkpoints'.)
+Get the checkpoints from the HuggingFace repo:&nbsp;[DualCamCtrl Checkpoints](https://huggingface.co/FayeHongfeiZhang/DualCamCtrl) and put it the checkpoints dir (You could just simply download the HF repo which contains a dir named 'checkpoints'.)
 
 Your project structure should be like:
 
