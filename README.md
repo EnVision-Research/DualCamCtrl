@@ -43,14 +43,16 @@ https://github.com/user-attachments/assets/d637c15c-06b5-4d5e-9945-2ce81c013b3f
 
 ## 📰 News
 
+✅ 2025.12 — Released training code 🚀
+
 ✅ 2025.11 — Adding Gradio Demo ✨
 
 ✅ 2025.11 — Released inference pipeline & demo dataset ✔️
 
 ✅ 2025.11 — Uploaded official DualCamCtrl checkpoints to HuggingFace 🔑
 
-## ⚙️ TODO
-⬜ Release the training code 🚀
+<!-- ## ⚙️ TODO
+⬜ Release the training code 🚀 -->
 
 ## 🎯 Overview
 
