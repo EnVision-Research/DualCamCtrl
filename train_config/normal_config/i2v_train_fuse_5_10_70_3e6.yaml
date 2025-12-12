@@ -1,9 +1,12 @@
+# Alter these following params
+training_state_dir: 'your_training_state_dir'
+output_path: "your_out_path"
+data_root: 'your_data_root'
+
 # model:
 model_config_path: "model_config/controlnet_gate_asym_5_10.yaml"
 model_id_with_origin_paths: "PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:diffusion_pytorch_model*.safetensors,PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:models_t5_umt5-xxl-enc-bf16.pth,PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:Wan2.1_VAE.pth,PAI/Wan2.1-Fun-V1.1-1.3B-Control-Camera:models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth"
 pipe_name: "wan_video_camera"
-training_state_dir: 'your_training_state_dir'
-output_path: "your_out_path"
 
 # Trainable models
 trainable_models: "dit"
@@ -14,13 +17,12 @@ freeze_control_except: "all"     # [none, lora, all]
 copy_control_weights: false
 freeze_zero_linear: false
 
-# LoRA / checkpoint (we don't use lora here so there's need to implement)
+# LoRA  (If want to find the model not to fully train, you can use this)
 ckpt_has_lora: false
 ckpt_lora_base_model: null
 ckpt_lora_module: ""
 ckpt_lora_rank: 0
 ckpt_lora_adapter_name: "default"
-
 add_lora: false
 lora_base_model: null
 lora_target_modules: ""
@@ -38,10 +40,10 @@ use_gradient_checkpointing: true
 no_extra_frame: true # you may use this param with complementation like SEVA's M-in-N-out schema
 warmup_steps: 0
 return_control_latents: true
-drop_loss_rate: 70
+drop_loss_rate: 50
 
 # validate 
-init_validate: true
+init_validate: false
 validate_batch: 16
 
 
@@ -53,6 +55,5 @@ batch_size: 1
 train_height: 480
 train_width: 720
 use_image_depth: false
-
 # optimizer:
 load_optimizer: false

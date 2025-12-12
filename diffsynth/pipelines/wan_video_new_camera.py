@@ -72,10 +72,7 @@ class BasePipeline(torch.nn.Module):
         return self
 
     def check_resize_height_width(self, height, width, num_frames=None):
-        # Shape check
-        # print(
-        #     f"height, width, time division factor: {self.height_division_factor}, {self.width_division_factor}, {self.time_division_factor}, time division remainder: {self.time_division_remainder}"
-        # )
+
         assert (
             height % self.height_division_factor == 0
         ), f"height {height} is not divisible by {self.height_division_factor}."
@@ -150,7 +147,8 @@ class BasePipeline(torch.nn.Module):
     ):
         # Transform a torch.Tensor to PIL.Image
         if pattern != "H W C":
-            vae_output = reduce(vae_output, f"{pattern} -> H W C", reduction="mean")
+            vae_output = reduce(
+                vae_output, f"{pattern} -> H W C", reduction="mean")
         image = ((vae_output - min_value) * (255 / (max_value - min_value))).clip(
             0, 255
         )
@@ -228,7 +226,8 @@ class BasePipeline(torch.nn.Module):
     ):
         # Initialize Gaussian noise
         generator = (
-            None if seed is None else torch.Generator(rand_device).manual_seed(seed)
+            None if seed is None else torch.Generator(
+                rand_device).manual_seed(seed)
         )
         noise = torch.randn(
             shape, generator=generator, device=rand_device, dtype=rand_torch_dtype
@@ -342,7 +341,8 @@ class WanVideoCameraPipeline(BasePipeline):
             time_division_factor=4,
             time_division_remainder=1,
         )
-        self.scheduler = FlowMatchScheduler(shift=5, sigma_min=0.0, extra_one_step=True)
+        self.scheduler = FlowMatchScheduler(
+            shift=5, sigma_min=0.0, extra_one_step=True)
         self.prompter = WanPrompter(tokenizer_path=tokenizer_path)
         self.text_encoder: WanTextEncoder = None
         self.image_encoder: WanImageEncoder = None
@@ -371,12 +371,15 @@ class WanVideoCameraPipeline(BasePipeline):
         self.model_fn = model_fn_wan_video
 
     def load_lora(self, module, path, alpha=1):
-        loader = GeneralLoRALoader(torch_dtype=self.torch_dtype, device=self.device)
-        lora = load_state_dict(path, torch_dtype=self.torch_dtype, device=self.device)
+        loader = GeneralLoRALoader(
+            torch_dtype=self.torch_dtype, device=self.device)
+        lora = load_state_dict(
+            path, torch_dtype=self.torch_dtype, device=self.device)
         loader.load(module, lora, alpha=alpha)
 
     def training_loss(self, **inputs):
-        timestep_id = torch.randint(0, self.scheduler.num_train_timesteps, (1,))
+        timestep_id = torch.randint(
+            0, self.scheduler.num_train_timesteps, (1,))
         timestep = self.scheduler.timesteps[timestep_id].to(
             dtype=self.torch_dtype, device=self.device
         )
@@ -407,9 +410,6 @@ class WanVideoCameraPipeline(BasePipeline):
         main_loss = torch.nn.functional.mse_loss(
             main_pred.float(), training_target.float(), reduction="none"
         )
-        # print(
-        #     f"Main loss min,mean,max: {main_loss.min().item()},{main_loss.mean().item()},{main_loss.max().item()}"
-        # )
         main_loss_max = main_loss.max().item()
         main_loss = main_loss.mean()
         loss += main_loss * self.scheduler.training_weight(timestep)
@@ -418,18 +418,11 @@ class WanVideoCameraPipeline(BasePipeline):
                 control_pred.float(), control_training_target.float(), reduction="none"
             )
             control_loss_flatten = control_loss.view(-1)
-            # print(
-            #     f"Before topk, control_loss_flatten min,mean,max: {control_loss_flatten.min().item()},{control_loss_flatten.mean().item()},{control_loss_flatten.max().item()}"
-            # )
-            drop_rate=inputs['drop_loss_rate']
-            # print(f"Dropping top {drop_rate} loss")
-            top_vals, top_idx = torch.topk(control_loss_flatten, k=drop_rate, largest=True)
-            # zero those > max loss of rgb
-            # top_idx = torch.where(control_loss_flatten > main_loss_max)
+            drop_rate = inputs['drop_loss_rate']
+            top_vals, top_idx = torch.topk(
+                control_loss_flatten, k=drop_rate, largest=True)
             control_loss_flatten[top_idx] = 0
-            # print(
-            #     f"After filtering outlier, control_loss_flatten min,mean,max: {control_loss_flatten.min().item()},{control_loss_flatten.mean().item()},{control_loss_flatten.max().item()}"
-            # )
+
             control_loss = torch.mean(control_loss_flatten)
             loss += control_loss * self.scheduler.training_weight(timestep)
 
@@ -681,7 +674,7 @@ class WanVideoCameraPipeline(BasePipeline):
             dtype=next(iter(pipe.dit.parameters())).dtype
         )
         state = controlnet.load_state_dict(pipe.dit.state_dict(), strict=False)
-        
+
         assert (
             len(state.unexpected_keys) == 0
         ), f"Unexpected keys {state.unexpected_keys}"
@@ -692,7 +685,8 @@ class WanVideoCameraPipeline(BasePipeline):
         # -------------------------------------------------
 
         pipe.vae = model_manager.fetch_model("wan_video_vae")
-        pipe.image_encoder = model_manager.fetch_model("wan_video_image_encoder")
+        pipe.image_encoder = model_manager.fetch_model(
+            "wan_video_image_encoder")
         pipe.motion_controller = model_manager.fetch_model(
             "wan_video_motion_controller"
         )
@@ -869,7 +863,8 @@ class WanVideoCameraPipeline(BasePipeline):
             )
         # Denoise
         self.load_models_to_device(self.in_iteration_models)
-        models = {name: getattr(self, name) for name in self.in_iteration_models}
+        models = {name: getattr(self, name)
+                  for name in self.in_iteration_models}
 
         for progress_id, timestep in enumerate(
             progress_bar_cmd(self.scheduler.timesteps)
@@ -1077,11 +1072,7 @@ class WanVideoUnit_NoiseInitializer(PipelineUnit):
             seed=seed,
             rand_device=rand_device,
         )
-        # control_noise = pipe.generate_noise(
-        #     (batch_size, 16, length, height // 8, width // 8),
-        #     seed=seed,
-        #     rand_device=rand_device,
-        # )
+
         # For debug TODO
         control_noise = noise
         return {"noise": noise, "control_noise": control_noise}
@@ -1136,24 +1127,6 @@ class WanVideoUnit_InputVideoEmbedder(PipelineUnit):  # For training only
         del input_video
         if pipe.scheduler.training:
             return {"latents": noise, "input_latents": input_latents}
-
-
-# class WanVideoUnit_PromptEmbedder(PipelineUnit):
-#     def __init__(self):
-#         super().__init__(
-#             seperate_cfg=True,
-#             input_params_posi={"prompt": "prompt", "positive": "positive"},
-#             input_params_nega={
-#                 "prompt": "negative_prompt", "positive": "positive"},
-#             onload_model_names=("text_encoder",),
-#         )
-
-#     def process(self, pipe: WanVideoPipeline, prompt, positive) -> dict:
-#         pipe.load_models_to_device(self.onload_model_names)
-#         prompt_emb = pipe.prompter.encode_prompt(
-#             prompt, positive=positive, device=pipe.device
-#         )
-#         return {"context": prompt_emb}
 
 
 class WanVideoUnit_PromptEmbedder(PipelineUnit):
@@ -1232,7 +1205,8 @@ class WanVideoUnit_ImageEmbedder(PipelineUnit):
 
         clip_context = pipe.image_encoder.encode_image([image])
 
-        clip_context = clip_context.to(dtype=pipe.torch_dtype, device=pipe.device)
+        clip_context = clip_context.to(
+            dtype=pipe.torch_dtype, device=pipe.device)
         return {"clip_feature": clip_context}
 
 
@@ -1330,30 +1304,6 @@ class WanVideoUnit_FunCameraControl(PipelineUnit):
         input_control,
         t2v,
     ):
-        # if camera_control_direction is None:
-        #     print(
-        #         f"WanVideoUnit_FunCameraControl: camera_control_direction is None, skip camera control."
-        #     )
-        #     return {}
-        # camera_control_plucker_embedding = (
-        #     pipe.dit.control_adapter.process_camera_coordinates(
-        #         camera_control_direction,
-        #         num_frames,
-        #         height,
-        #         width,
-        #         camera_control_speed,
-        #         camera_control_origin,
-        #     )
-        # )
-        # control_camera_video = (
-        #     camera_control_plucker_embedding[:num_frames]
-        #     .permute([3, 0, 1, 2])
-        #     .unsqueeze(0)
-        # )
-        # print(
-        #     f"camera_control_plucker_embedding shape: {camera_control_plucker_embedding.shape}")
-
-        # print(f"plucker_embedding shape: {plucker_embedding.shape}")
 
         control_camera_video = plucker_embedding
         control_camera_latents = torch.concat(
@@ -1391,8 +1341,10 @@ class WanVideoUnit_FunCameraControl(PipelineUnit):
         if not t2v:
             input_latents = []
             for _input_image in input_image:
-                _vae_input = pipe.preprocess_video(_input_image)  # 1 C H W -> 1 C T H W
-                _vae_input = _vae_input.to(dtype=pipe.torch_dtype, device=pipe.device)
+                _vae_input = pipe.preprocess_video(
+                    _input_image)  # 1 C H W -> 1 C T H W
+                _vae_input = _vae_input.to(
+                    dtype=pipe.torch_dtype, device=pipe.device)
                 # print(f"_vae_input shape: {_vae_input.shape}")
                 _input_latents = pipe.vae.encode(
                     _vae_input,
@@ -1404,7 +1356,8 @@ class WanVideoUnit_FunCameraControl(PipelineUnit):
             control_input_latents = []
             for _input_control in input_control:
                 _vae_input = pipe.preprocess_video(_input_control)
-                _vae_input = _vae_input.to(dtype=pipe.torch_dtype, device=pipe.device)
+                _vae_input = _vae_input.to(
+                    dtype=pipe.torch_dtype, device=pipe.device)
                 # print(f"_vae_input shape: {_vae_input.shape}")
                 _input_latents = pipe.vae.encode(
                     _vae_input,
@@ -1484,7 +1437,8 @@ class TeaCache:
             ],
         }
         if model_id not in self.coefficients_dict:
-            supported_model_ids = ", ".join([i for i in self.coefficients_dict])
+            supported_model_ids = ", ".join(
+                [i for i in self.coefficients_dict])
             raise ValueError(
                 f"{model_id} is not a supported TeaCache model id. Please choose a valid model id in ({supported_model_ids})."
             )
@@ -1574,8 +1528,10 @@ class TemporalTiler_BCTHW:
             tensor_dict[tensor_names[0]].device,
             tensor_dict[tensor_names[0]].dtype,
         )
-        value = torch.zeros((B, C, T, H, W), device=data_device, dtype=data_dtype)
-        weight = torch.zeros((1, 1, T, 1, 1), device=data_device, dtype=data_dtype)
+        value = torch.zeros(
+            (B, C, T, H, W), device=data_device, dtype=data_dtype)
+        weight = torch.zeros(
+            (1, 1, T, 1, 1), device=data_device, dtype=data_dtype)
         for t in range(0, T, sliding_window_stride):
             if (
                 t - sliding_window_stride >= 0
@@ -1669,13 +1625,12 @@ def model_fn_wan_video(
         )
 
     x = latents
-    # for debug TODO
-    # assert torch.allclose(x, control_latents), "Latents and control latents are not the same."
 
     t = dit.time_embedding(sinusoidal_embedding_1d(dit.freq_dim, timestep))
     t_mod = dit.time_projection(t).unflatten(1, (6, dit.dim))
     if motion_bucket_id is not None and motion_controller is not None:
-        t_mod = t_mod + motion_controller(motion_bucket_id).unflatten(1, (6, dit.dim))
+        t_mod = t_mod + \
+            motion_controller(motion_bucket_id).unflatten(1, (6, dit.dim))
     context = dit.text_embedding(context)
 
     if dit.has_image_input:
@@ -1689,7 +1644,6 @@ def model_fn_wan_video(
     control_latents, (f_c, h_c, w_c) = dit.patchify(
         control_latents, control_camera_latents_input
     )
-    # assert torch.allclose(x, control_latents), "Latents and control latents are not the same."
     assert (
         f == f_c and h == h_c and w == w_c
     ), f"Patchified latent shape mismatch: {x.shape} vs {control_latents.shape}, f: {f}, h: {h}, w: {w}, f_c: {f_c}, h_c: {h_c}, w_c: {w_c}"
@@ -1713,9 +1667,6 @@ def model_fn_wan_video(
         tea_cache_update = tea_cache.check(dit, x, t_mod)
     else:
         tea_cache_update = False
-
-    # if vace_context is not None:
-    #     vace_hints = vace(x, vace_context, context, t_mod, freqs)
 
     # blocks
     if use_unified_sequence_parallel:
@@ -1748,9 +1699,7 @@ def model_fn_wan_video(
 
                 control_block_id = dit.control_block_index.index(block_id)
 
-                # print(f"Processing control block {control_block_id} ...")
                 if block_id in dit.rgb_inject_blocks:
-                    # print(f"Adding rgb to depth at block {block_id} ...")
                     rgb_zero_linear_idx = dit.rgb_inject_blocks.index(block_id)
                     if dit.use_gate_3d_linear:
                         control_latents = control_latents + dit.rgb_zero_inits[
@@ -1764,7 +1713,8 @@ def model_fn_wan_video(
                 if use_gradient_checkpointing_offload:
                     with torch.autograd.graph.save_on_cpu():
                         control_latents = torch.utils.checkpoint.checkpoint(
-                            create_custom_forward(dit.control_blocks[control_block_id]),
+                            create_custom_forward(
+                                dit.control_blocks[control_block_id]),
                             control_latents,
                             context,
                             t_mod,
@@ -1773,7 +1723,8 @@ def model_fn_wan_video(
                         )
                 elif use_gradient_checkpointing:
                     control_latents = torch.utils.checkpoint.checkpoint(
-                        create_custom_forward(dit.control_blocks[control_block_id]),
+                        create_custom_forward(
+                            dit.control_blocks[control_block_id]),
                         control_latents,
                         context,
                         t_mod,
@@ -1785,10 +1736,9 @@ def model_fn_wan_video(
                         control_latents, context, t_mod, freqs
                     )
                 if block_id in dit.depth_inject_blocks:
-                    control_zero_linear_idx = dit.depth_inject_blocks.index(block_id)
-                    # print(f"Adding depth to rgb at block {block_id} ...")
+                    control_zero_linear_idx = dit.depth_inject_blocks.index(
+                        block_id)
                     if dit.use_gate_3d_linear:
-
                         x = x + dit.control_zero_inits[control_zero_linear_idx](
                             x, control_latents, f, h, w
                         )
@@ -1819,9 +1769,6 @@ def model_fn_wan_video(
                 )
             else:
                 x = block(x, context, t_mod, freqs)
-
-            # For debug
-            # print(f"Mse between x and control_latents after block {block_id}: {torch.mean((x - control_latents) ** 2).item()}")
 
             if vace_context is not None and block_id in vace.vace_layers_mapping:
                 current_vace_hint = vace_hints[vace.vace_layers_mapping[block_id]]

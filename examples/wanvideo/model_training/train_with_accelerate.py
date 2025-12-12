@@ -1,7 +1,6 @@
 from omegaconf import OmegaConf
 from accelerate.utils import set_seed
 from .args import wan_parser
-from ...dataset.colmap_debug import ScenesDataset
 from ...dataset.realestate10k import RealEstate10KPose
 import imageio
 import os
@@ -37,7 +36,8 @@ def custom_collate_fn(batch):
         elif values[0] is None:
             collated[key] = None
         else:
-            raise TypeError(f"Unsupported type for key '{key}': {type(values[0])}")
+            raise TypeError(
+                f"Unsupported type for key '{key}': {type(values[0])}")
     return collated
 
 
@@ -56,7 +56,7 @@ def get_data(data, args):
             "extra_images": data.get("extra_images", None),
             "extra_image_frame_index": data.get("extra_image_frame_index", None),
             "t2v": args.t2v,
-            'drop_loss_rate':args.drop_loss_rate,
+            'drop_loss_rate': args.drop_loss_rate,
             "control_video": data.get("control", None),
             "prompt": data.get("prompt", ""),
             "return_control_latents": args.return_control_latents,
@@ -72,8 +72,10 @@ def get_data(data, args):
         ]
 
         if args.t2v:
-            input_data["input_image"] = torch.zeros_like(input_data["input_image"])
-            input_data["input_control"] = torch.zeros_like(input_data["input_control"])
+            input_data["input_image"] = torch.zeros_like(
+                input_data["input_image"])
+            input_data["input_control"] = torch.zeros_like(
+                input_data["input_control"])
         else:
             input_data['prompt'] = ['']*input_data['batch_size']
         return input_data
@@ -89,7 +91,8 @@ class DiffusionTrainingModule(torch.nn.Module):
         return self
 
     def trainable_modules(self):
-        trainable_modules = filter(lambda p: p.requires_grad, self.parameters())
+        trainable_modules = filter(
+            lambda p: p.requires_grad, self.parameters())
         return trainable_modules
 
     def trainable_param_names(self):
@@ -112,7 +115,8 @@ class DiffusionTrainingModule(torch.nn.Module):
         lora_config = LoraConfig(
             r=lora_rank, lora_alpha=lora_alpha, target_modules=target_modules
         )
-        model = inject_adapter_in_model(lora_config, model, adapter_name=adapter_name)
+        model = inject_adapter_in_model(
+            lora_config, model, adapter_name=adapter_name)
         return model
 
     def export_trainable_state_dict(self, state_dict, remove_prefix=None):
@@ -126,7 +130,7 @@ class DiffusionTrainingModule(torch.nn.Module):
             state_dict_ = {}
             for name, param in state_dict.items():
                 if name.startswith(remove_prefix):
-                    name = name[len(remove_prefix) :]
+                    name = name[len(remove_prefix):]
                 state_dict_[name] = param
             state_dict = state_dict_
         return state_dict
@@ -160,7 +164,8 @@ class WanTrainingModule(DiffusionTrainingModule):
             model_id_with_origin_paths = model_id_with_origin_paths.split(",")
             model_configs += [
                 ModelConfig(
-                    model_id=i.split(":")[0], origin_file_pattern=i.split(":")[1]
+                    model_id=i.split(
+                        ":")[0], origin_file_pattern=i.split(":")[1]
                 )
                 for i in model_id_with_origin_paths
             ]
@@ -215,11 +220,13 @@ class WanTrainingModule(DiffusionTrainingModule):
         self.use_gradient_checkpointing = use_gradient_checkpointing
         self.use_gradient_checkpointing_offload = use_gradient_checkpointing_offload
         print(f"Training Module initialized with the following configurations:")
-        print(f"Using gradient checkpointing: {self.use_gradient_checkpointing}")
+        print(
+            f"Using gradient checkpointing: {self.use_gradient_checkpointing}")
         print(
             f"Using gradient checkpointing offload: {self.use_gradient_checkpointing_offload}"
         )
-        self.extra_inputs = extra_inputs.split(",") if extra_inputs is not None else []
+        self.extra_inputs = extra_inputs.split(
+            ",") if extra_inputs is not None else []
 
     def forward_preprocess(self, data):
         # CFG-sensitive parameters
@@ -241,7 +248,7 @@ class WanTrainingModule(DiffusionTrainingModule):
             "batch_size": data.get("batch_size"),
             "return_control_latents": data.get("return_control_latents"),
             "t2v": data.get("t2v"),
-            'drop_loss_rate':data.get("drop_loss_rate",30),
+            'drop_loss_rate': data.get("drop_loss_rate", 30),
             # Please do not modify the following parameters
             # unless you clearly know what this will cause.
             "cfg_scale": 1,
@@ -255,14 +262,9 @@ class WanTrainingModule(DiffusionTrainingModule):
         batch_size = inputs_shared["batch_size"]
 
         inputs_posi = {
-            "prompt": data.get("prompt", [""] *data.get('batch_size')),
+            "prompt": data.get("prompt", [""] * data.get('batch_size')),
         }
-        # print(f"positive_prompt :{inputs_posi}")
 
-        # if not inputs_shared['t2v']:
-        #     inputs_posi={
-        #         'prompt': ['']*data.get('batch_size')
-        #     }
         inputs_nega = {
             "negative_prompt": data.get("negative_prompt", [""] * data.get('batch_size')),
         }
@@ -323,15 +325,16 @@ class WanTrainingModule(DiffusionTrainingModule):
 
                 if idx != 0:
                     rgb_video_save_num += (world_size - 1) * args.batch_size
-                    control_video_save_num += (world_size - 1) * args.batch_size
+                    control_video_save_num += (world_size - 1) * \
+                        args.batch_size
                 with torch.no_grad():
                     input_data = get_data(batch, args)
                     # print(f"input data input control shape {inp_ctrl.shape}")
                     # Prompt
-                    _pp= input_data['prompt']
-                    _np= input_data['negative_prompt']
+                    _pp = input_data['prompt']
+                    _np = input_data['negative_prompt']
                     # print(f"Using prompt {_pp, _np}")
-                    
+
                     videos = self.pipe(
                         prompt=input_data["prompt"],
                         negative_prompt=input_data["negative_prompt"],
@@ -361,9 +364,6 @@ class WanTrainingModule(DiffusionTrainingModule):
 
                         if v is None:
                             continue
-                        # print(
-                        #     f"Handling v with {len(v)} videos, first with frames len {len(v[0])}, keys: {k}"
-                        # )
 
                         # Key in ['images','control_video']
                         # GT video
@@ -382,8 +382,10 @@ class WanTrainingModule(DiffusionTrainingModule):
                         for i in range(len(input_frames)):
                             if input_frames[i] is None:
                                 input_frames[i] = last_valid
-                        input_frames = torch.stack(input_frames, dim=0)  # F B C H W
-                        input_frames = input_frames.permute(1, 2, 0, 3, 4)  # B C F H W
+                        input_frames = torch.stack(
+                            input_frames, dim=0)  # F B C H W
+                        input_frames = input_frames.permute(
+                            1, 2, 0, 3, 4)  # B C F H W
 
                         # Convert to video, increment video_save_num
                         input_frames = self.pipe.vae_output_to_video(
@@ -409,7 +411,8 @@ class WanTrainingModule(DiffusionTrainingModule):
                                 save_path,
                                 f"video_{rgb_video_save_num if k=='images' else control_video_save_num}_{k}_step_{global_step}.mp4",
                             )
-                            print(f"Rank {rank} saving videos to {predict_save_path}")
+                            print(
+                                f"Rank {rank} saving videos to {predict_save_path}")
                             if not os.path.exists(input_save_path):
                                 save_video(
                                     _input_frames,
@@ -434,9 +437,6 @@ class WanTrainingModule(DiffusionTrainingModule):
                                 rgb_video_save_num += 1
                             else:
                                 control_video_save_num += 1
-                            # print(
-                            #     f"rgb_video_save_num: {rgb_video_save_num}, control_video_save_num: {control_video_save_num}"
-                            # )
 
 
 class ModelLogger:
@@ -446,10 +446,6 @@ class ModelLogger:
         self.output_path = output_path
         import time
 
-        # current_time = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-        # self.output_path = os.path.join(
-        #     self.output_path, f"logs_{current_time}"
-        # )
         os.makedirs(self.output_path, exist_ok=True)
 
         self.remove_prefix_in_ckpt = remove_prefix_in_ckpt
@@ -465,10 +461,8 @@ class ModelLogger:
             print(f"No training state found at {meta_path}.")
             return 0, 0
 
-        # 先用 accelerate 载入所有状态，包括模型权重、优化器和调度器等
         accelerator.load_state(dir)
 
-        # 再读取训练元信息
         meta = torch.load(meta_path, map_location="cpu")
         epoch = meta.get("epoch", 0)
         global_step = meta.get("global_step", 0)
@@ -483,7 +477,6 @@ class ModelLogger:
         if accelerator.is_main_process:
             accelerator.print("Saving training state...")
 
-        # 这里准备一个 dict 存放自定义训练元信息
         meta_state = {
             "epoch": epoch_id,
             "global_step": global_step,
@@ -492,13 +485,10 @@ class ModelLogger:
             self.output_path, f"checkpoint-step-{global_step}"
         )
         os.makedirs(step_save_path, exist_ok=True)
-        # 先保存 meta_state 到一个临时文件
         meta_path = os.path.join(step_save_path, "meta_state.pt")
         if accelerator.is_main_process:
             torch.save(meta_state, meta_path)
 
-        # 统一用 accelerator.save_state 保存所有状态到 output_path
-        # 它会自动保存 model, optimizer, scheduler 等所有由 accelerate 管理的组件
         accelerator.save_state(step_save_path)
 
 
@@ -523,12 +513,14 @@ def launch_training_task(
     accelerator.print(
         f"Initial accelerator with gradient accumulation steps: {accelerator.gradient_accumulation_steps}"
     )
-    accelerator.print(f"Using {accelerator.num_processes} processes for training.")
+    accelerator.print(
+        f"Using {accelerator.num_processes} processes for training.")
     accelerator.print(
         f"Preparing model, optimizer, dataloader, and scheduler with accelerator."
     )
 
-    accelerator.print(f"Model param dtype : {next(model.pipe.dit.parameters()).dtype}")
+    accelerator.print(
+        f"Model param dtype : {next(model.pipe.dit.parameters()).dtype}")
 
     if global_step > 0:
         accelerator.print(
@@ -556,17 +548,9 @@ def launch_training_task(
         model.pipe.dit.train()
     accelerator.wait_for_everyone()
 
-    print(f"accelerator.state.deepspeed_plugin: {accelerator.state.deepspeed_plugin}")
+    print(
+        f"accelerator.state.deepspeed_plugin: {accelerator.state.deepspeed_plugin}")
     optimizer.zero_grad()
-
-    # old_step = optimizer.step  # 备份原始方法
-
-    # def patched_step(*args, **kwargs):
-    #     print(
-    #         f"[Patched] optimizer.step() called, lr: {optimizer.param_groups[0]['lr']:.6f}")
-    #     return old_step(*args, **kwargs)
-
-    # optimizer.step = patched_step
 
     accumulate_main_loss = 0.0
     accumulate_control_loss = 0.0
@@ -590,7 +574,8 @@ def launch_training_task(
                 acm_cnt += 1
                 # Update optimizer and scheduler
                 if accelerator.sync_gradients:
-                    accelerator.clip_grad_norm_(model.trainable_modules(), max_norm=1.0)
+                    accelerator.clip_grad_norm_(
+                        model.trainable_modules(), max_norm=1.0)
                     optimizer.step()
                     optimizer.zero_grad()
                     scheduler.step()
@@ -641,7 +626,8 @@ def launch_training_task(
                             global_step=global_step,
                         )
                         accelerator.wait_for_everyone()
-                        accelerator.print(f"Checkpoint saved at step {global_step}")
+                        accelerator.print(
+                            f"Checkpoint saved at step {global_step}")
                         model.pipe.dit.eval()
                         model.validate(
                             accelerator=accelerator,
@@ -656,21 +642,6 @@ def launch_training_task(
                         accelerator.wait_for_everyone()
 
 
-# def launch_data_process_task(model: DiffusionTrainingModule, dataset, output_path="./models"):
-#     dataloader = torch.utils.data.DataLoader(
-#         dataset, shuffle=False, collate_fn=lambda x: x[0])
-#     accelerator = Accelerator()
-#     model, dataloader = accelerator.prepare(model, dataloader)
-#     os.makedirs(os.path.join(output_path, "data_cache"), exist_ok=True)
-#     for data_id, data in enumerate(tqdm(dataloader)):
-#         with torch.no_grad():
-#             inputs = model.forward_preprocess(data)
-#             inputs = {key: inputs[key]
-#                       for key in model.model_input_keys if key in inputs}
-#             torch.save(inputs, os.path.join(
-#                 output_path, "data_cache", f"{data_id}.pth"))
-
-
 if __name__ == "__main__":
 
     import builtins
@@ -683,14 +654,12 @@ if __name__ == "__main__":
     import argparse
 
     def get_config():
-        # 支持命令行传递 config.yaml 路径
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "--config", type=str, default=None, help="Path to config yaml"
         )
         args = parser.parse_args()
 
-        # 读取 YAML 配置
         if not os.path.exists(args.config):
             parser = wan_parser()
             args = parser.parse_args()
@@ -699,7 +668,7 @@ if __name__ == "__main__":
         return cfg
 
     cfg = get_config()
-    print(OmegaConf.to_yaml(cfg))  # 打印出来检查
+    print(OmegaConf.to_yaml(cfg))
     args = cfg
 
     if not accelerator.is_main_process:
@@ -707,15 +676,14 @@ if __name__ == "__main__":
         import deepspeed
 
         deepspeed.utils.logging.logger.disabled = True
-    # dataset = VideoDataset(args=args)
-    # export DEEPSPEED_LOG_LEVEL=debug
-    # export DEEPSPEED_ZERO_LOG_LEVEL=debug
 
     # Save model config and args
-    model_config_save_path = os.path.join(args.output_path, "model_config.yaml")
+    model_config_save_path = os.path.join(
+        args.output_path, "model_config.yaml")
     os.makedirs(args.output_path, exist_ok=True)
     if accelerator.is_main_process and not os.path.exists(model_config_save_path):
-        accelerator.print(f"Saving model configuration to {model_config_save_path}")
+        accelerator.print(
+            f"Saving model configuration to {model_config_save_path}")
 
         model_config = OmegaConf.load(args.model_config_path)
 
@@ -742,14 +710,17 @@ if __name__ == "__main__":
         copy_control_weights=args.copy_control_weights,
         args=args,
     )
-    # assert the
+
+    # ----------- LORA part (You might skip some of these if you finetune the whole model)--------------
     lora_list = []
     for name, param in model.pipe.dit.named_parameters():
         if "lora" in name:
             lora_list.append(name)
-    accelerator.print(f"After initializing model, lora parameters: {len(lora_list)}")
+    accelerator.print(
+        f"After initializing model, lora parameters: {len(lora_list)}")
 
-    model_state_dir = os.path.join(f"{args.training_state_dir}", "pytorch_model")
+    model_state_dir = os.path.join(
+        f"{args.training_state_dir}", "pytorch_model")
     if os.path.exists(model_state_dir):
         from deepspeed.utils.zero_to_fp32 import (
             load_state_dict_from_zero_checkpoint,
@@ -780,7 +751,8 @@ if __name__ == "__main__":
         for name, param in model.pipe.dit.named_parameters():
             if "lora" in name:
                 lora_list.append(name)
-        accelerator.print(f"After loading model, lora parameters: {len(lora_list)},")
+        accelerator.print(
+            f"After loading model, lora parameters: {len(lora_list)},")
     else:
         accelerator.print(
             f"No model state found at {model_state_dir}, starting from scratch."
@@ -845,9 +817,6 @@ if __name__ == "__main__":
 
     # Control branch
     if args.has_control_model:
-        # if args.copy_control_weights:
-        #     model.pipe.dit.copy_weights_from_main_branch()
-        # model.pipe.dit.alter_camera_blocks()
         accelerator.print(f"Model has control model...")
         if args.freeze_control_except == "all":
             for name, param in model.pipe.dit.named_parameters():
@@ -857,7 +826,7 @@ if __name__ == "__main__":
             for name, param in model.pipe.dit.named_parameters():
                 if "lora" in name and "control_blocks." in name:
                     param.requires_grad = True
-        # Also don't forget to unfreeze the zero init parameters
+        # Also don't forget to unfreeze zero init parameters
         if not args.freeze_zero_linear:
             for name, param in model.pipe.dit.named_parameters():
                 if "zero_inits" in name:
@@ -890,64 +859,32 @@ if __name__ == "__main__":
         remove_prefix_in_ckpt=args.remove_prefix_in_ckpt,
     )
 
-    # Default set the ratio that train test has no overlap.
-    dataset_name = args.dataset_name
-    if dataset_name.lower() == "dl3dv":
-        h, w = args.height, args.width
-        resize_h, resize_w = args.train_height, args.train_width
-        assert args.train_min_frame % 4 == 1, "train_min_frame should be 4n+1"
-        assert args.test_min_frame % 4 == 1, "test_min_frame should be 4n+1"
-
-        train_ratio = 0.98
-        test_ratio = 1 - train_ratio
-        train_dataset = ScenesDataset(
-            no_extra_frame=args.no_extra_frame,
-            max_frame=args.train_max_frame,
-            min_frame=args.train_min_frame,
-            min_sample_step=args.train_min_sample_stride,
-            max_sample_step=args.train_max_sample_stride,
-            ratio=train_ratio,
-            relative_pose=True,
-            split="train",
-            patch_size=[w, h],  # W H
-            resize_size=[resize_w, resize_h],  # W H
-        )
-
-        test_dataset = ScenesDataset(
-            no_extra_frame=args.no_extra_frame,
-            # max_frame=args.test_max_frame, # test only use the min frame as the max frame
-            min_frame=args.test_min_frame,
-            min_sample_step=args.test_min_sample_stride,
-            max_sample_step=args.test_max_sample_stride,
-            relative_pose=True,
-            split="test",
-            ratio=test_ratio,
-            patch_size=[w, h],  # W H
-            resize_size=[resize_w, resize_h],  # W H
-        )
-    elif dataset_name.lower() == "re10k":
-        train_dataset = RealEstate10KPose(
-            split="train",
-            sample_stride=8,
-            sample_n_frames=61,
-            relative_pose=True,
-            sample_size=[args.train_height, args.train_width],
-            use_image_depth=args.use_image_depth,
-            rescale_fxy=True,
-            use_flip=False,
-            no_extra_frame=True,
-        )
-        test_dataset = RealEstate10KPose(
-            split="test",
-            sample_stride=8,
-            sample_n_frames=61,
-            relative_pose=True,
-            use_image_depth=args.use_image_depth,
-            sample_size=[args.train_height, args.train_width],
-            rescale_fxy=True,
-            use_flip=False,
-            no_extra_frame=True,
-        )
+    train_dataset = RealEstate10KPose(
+        data_root=os.path.join(args.data_root, 'train_scenes'),
+        split="train",
+        sample_stride=8,
+        sample_n_frames=61,
+        minimum_sample_stride=2,
+        relative_pose=True,
+        sample_size=[args.train_height, args.train_width],
+        use_image_depth=args.use_image_depth,
+        rescale_fxy=True,
+        use_flip=False,
+        no_extra_frame=True,
+    )
+    test_dataset = RealEstate10KPose(
+        data_root=os.path.join(args.data_root, 'test_scenes'),
+        split="test",
+        sample_stride=8,
+        sample_n_frames=61,
+        minimum_sample_stride=2,
+        relative_pose=True,
+        use_image_depth=args.use_image_depth,
+        sample_size=[args.train_height, args.train_width],
+        rescale_fxy=True,
+        use_flip=False,
+        no_extra_frame=True,
+    )
 
     train_dataloader = torch.utils.data.DataLoader(
         # Assuming dataset returns a dict
@@ -970,7 +907,8 @@ if __name__ == "__main__":
         prefetch_factor=2,
     )
 
-    optimizer = torch.optim.AdamW(model.trainable_modules(), lr=args.learning_rate)
+    optimizer = torch.optim.AdamW(
+        model.trainable_modules(), lr=args.learning_rate)
 
     world_size = accelerator.num_processes
 

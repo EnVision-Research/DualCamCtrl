@@ -12,8 +12,64 @@ import numpy as np
 
 from torch.utils.data.dataset import Dataset
 from packaging import version as pver
-from .colmap_debug import ray_condition, custom_meshgrid
 
+
+def custom_meshgrid(*args):
+    # ref: https://pytorch.org/docs/stable/generated/torch.meshgrid.html?highlight=meshgrid#torch.meshgrid
+    if pver.parse(torch.__version__) < pver.parse("1.10"):
+        return torch.meshgrid(*args)
+    else:
+        return torch.meshgrid(*args, indexing="ij")
+
+
+def ray_condition(K, c2w, H, W, device, flip_flag=None):
+    # c2w: B, V, 4, 4
+    # K: B, V, 4
+
+    B, V = K.shape[:2]
+
+    j, i = custom_meshgrid(
+        torch.linspace(0, H - 1, H, device=device, dtype=c2w.dtype),
+        torch.linspace(0, W - 1, W, device=device, dtype=c2w.dtype),
+    )
+
+    i = i.reshape([1, 1, H * W]).expand([B, V, H * W]) + 0.5  # [B, V, HxW]
+    j = j.reshape([1, 1, H * W]).expand([B, V, H * W]) + 0.5  # [B, V, HxW]
+
+    n_flip = torch.sum(flip_flag).item() if flip_flag is not None else 0
+    if n_flip > 0:
+        j_flip, i_flip = custom_meshgrid(
+            torch.linspace(0, H - 1, H, device=device, dtype=c2w.dtype),
+            torch.linspace(W - 1, 0, W, device=device, dtype=c2w.dtype),
+        )
+        i_flip = i_flip.reshape([1, 1, H * W]).expand(B, 1, H * W) + 0.5
+        j_flip = j_flip.reshape([1, 1, H * W]).expand(B, 1, H * W) + 0.5
+        i[:, flip_flag, ...] = i_flip
+        j[:, flip_flag, ...] = j_flip
+
+    fx, fy, cx, cy = K.chunk(4, dim=-1)  # B,V, 1
+
+    zs = torch.ones_like(i)  # [B, V, HxW]
+    xs = (i - cx) / fx * zs
+    ys = (j - cy) / fy * zs
+    zs = zs.expand_as(ys)
+
+    directions = torch.stack((xs, ys, zs), dim=-1)  # B, V, HW, 3
+    directions = directions / \
+        directions.norm(dim=-1, keepdim=True)  # B, V, HW, 3
+
+    rays_d = directions @ c2w[..., :3, :3].transpose(-1, -2)  # B, V, HW, 3
+    rays_o = c2w[..., :3, 3]  # B, V, 3
+    rays_o = rays_o[:, :, None].expand_as(rays_d)  # B, V, HW, 3
+    # c2w @ dirctions
+    # B, V, HW, 3
+    # print(f"rays_o shape: {rays_o.shape}, rays_d shape: {rays_d.shape}")
+    rays_dxo = torch.cross(rays_o, rays_d, dim=-1)
+    # print(f"rays_dxo shape: {rays_dxo.shape}")
+    plucker = torch.cat([rays_dxo, rays_d], dim=-1)
+    plucker = plucker.reshape(B, c2w.shape[1], H, W, 6)  # B, V, H, W, 6
+    # plucker = plucker.permute(0, 1, 4, 2, 3)
+    return plucker
 
 
 class RandomHorizontalFlipWithPose(nn.Module):
@@ -57,8 +113,9 @@ class Camera(object):
 class RealEstate10KPose(Dataset):
     def __init__(
         self,
-        start=0,
+        data_root,
         split="train",
+        start=0,
         sample_stride=8,
         minimum_sample_stride=1,
         sample_n_frames=21,
@@ -74,14 +131,12 @@ class RealEstate10KPose(Dataset):
         self.use_image_depth = use_image_depth
         self.split = split
         self.return_depth = return_depth
-        if self.split == "train":
-            self.meta_json_path = (
-                "/data/user/hongfeizhang/dataset/re10k/train_meta.json"
-            )
-            self.data_root = "/data/user/hongfeizhang/dataset/re10k/train_scenes"
-        else:
-            self.meta_json_path = "/data/user/hongfeizhang/dataset/re10k/test_meta.json"
-            self.data_root = "/data/user/hongfeizhang/dataset/re10k/test_scenes"
+        self.data_root = data_root
+        self.split = split
+        self.meta_json_path = os.path.join(
+            data_root, '..', f"{split}_meta.json"
+        )
+
         self.prompt_root = self.data_root.replace(
             f"{self.split}_scenes", f"{self.split}_captions"
         )
@@ -117,7 +172,8 @@ class RealEstate10KPose(Dataset):
                 # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
             ]
             depth_transforms = [
-                transforms.Resize(sample_size, interpolation=InterpolationMode.NEAREST),
+                transforms.Resize(
+                    sample_size, interpolation=InterpolationMode.NEAREST),
                 RandomHorizontalFlipWithPose(),
             ]
 
@@ -174,8 +230,7 @@ class RealEstate10KPose(Dataset):
 
     def read_video(self, video_path):
         cap = cv2.VideoCapture(f"{video_path}")
-        # print(f"Reading depth from video file: {video_path}")
-        # 检查视频是否成功打开
+
         if not cap.isOpened():
             raise IOError(f"Cannot open video file: {video_path}")
             return
@@ -249,7 +304,7 @@ class RealEstate10KPose(Dataset):
         # Frame part
         scene_name = json_entry["key"]
         prompt = self.read_prompt(scene_name, end_frame_ind)
-        prompt = prompt.replace('image','video')
+        prompt = prompt.replace('image', 'video')
 
         # Camera
         cameras_info = torch.concat(
@@ -259,7 +314,8 @@ class RealEstate10KPose(Dataset):
 
         # image part
         images = data["images"]
-        pixel_values = [self.decode_image(image_tensor) for image_tensor in images]
+        pixel_values = [self.decode_image(image_tensor)
+                        for image_tensor in images]
         pixel_values = np.stack(pixel_values, axis=0)  # [F, H, W, C]
         pixel_values = (
             torch.from_numpy(pixel_values).permute(0, 3, 1, 2).contiguous()
@@ -294,17 +350,20 @@ class RealEstate10KPose(Dataset):
                     os.path.join(depth_dir, _depth_file_path)
                     for _depth_file_path in depth_files_sorted
                 ]
-                depth_numpy = [cv2.imread(_depth_path) for _depth_path in depth_files]
+                depth_numpy = [cv2.imread(_depth_path)
+                               for _depth_path in depth_files]
             else:
                 depth_dir = data_path.replace(
                     rf"{self.split}_scenes", rf"{self.split}_video_depth_maps"
                 ).replace(".torch", "")
-                depth_video_file = os.path.join(depth_dir, "depth_vitl_fp16.mp4")
+                depth_video_file = os.path.join(
+                    depth_dir, "depth_vitl_fp16.mp4")
                 depth_numpy = self.read_video(depth_video_file)
             # print(f"Depth frames: {len(depth_numpy)}")
             assert depth_numpy.shape[0] == total_frames
             depth_array = depth_numpy / 255.0
-            depth_tensor = torch.from_numpy(depth_array).float().permute(0, 3, 1, 2)
+            depth_tensor = torch.from_numpy(
+                depth_array).float().permute(0, 3, 1, 2)
             depth_tensor = depth_tensor[frame_indices]
         else:
             depth_tensor = torch.zeros_like(pixel_values)
@@ -315,11 +374,13 @@ class RealEstate10KPose(Dataset):
             if ori_wh_ratio > self.sample_wh_ratio:  # rescale fx
                 resized_ori_w = self.sample_size[0] * ori_wh_ratio
                 for cam_param in cam_params:
-                    cam_param.fx = resized_ori_w * cam_param.fx / self.sample_size[1]
+                    cam_param.fx = resized_ori_w * \
+                        cam_param.fx / self.sample_size[1]
             else:  # rescale fy
                 resized_ori_h = self.sample_size[1] / ori_wh_ratio
                 for cam_param in cam_params:
-                    cam_param.fy = resized_ori_h * cam_param.fy / self.sample_size[0]
+                    cam_param.fy = resized_ori_h * \
+                        cam_param.fy / self.sample_size[0]
 
         intrinsics = np.asarray(
             [
@@ -344,7 +405,8 @@ class RealEstate10KPose(Dataset):
         # [1, n_frame, 4, 4]
         c2w = torch.as_tensor(c2w_poses)[None]
         if self.use_flip:
-            flip_flag = self.pixel_transforms[1].get_flip_flag(self.sample_n_frames)
+            flip_flag = self.pixel_transforms[1].get_flip_flag(
+                self.sample_n_frames)
 
         else:
             flip_flag = torch.zeros(
@@ -387,16 +449,13 @@ class RealEstate10KPose(Dataset):
                 if self.split == "train":
                     idx = random.randint(0, self.length - 1)
                 else:
-                    idx += 32
+                    idx += 1
 
         if self.use_flip:
             video = self.pixel_transforms[0](video)
             video = self.pixel_transforms[1](video, flip_flag)
             depth_tensor = self.depth_transforms[0](depth_tensor)
             depth_tensor = self.depth_transforms[1](depth_tensor, flip_flag)
-
-            # video = self.pixel_transforms[2](video)
-
         else:
             for transform in self.pixel_transforms:
                 video = transform(video)
@@ -415,172 +474,13 @@ class RealEstate10KPose(Dataset):
             sample["extra_image_frame_index"] = None
         return sample
 
-    def visualizevideo(self, idx, save_root="video", fixed_point_world=None):
-        """Generate visualization video with camera projection overlay"""
-        import cv2
-        import numpy as np
-        import os
-        from tqdm import tqdm
-
-        if fixed_point_world is None:
-            fixed_point_world = np.array([0.0, 0.0, 0.0])
-        assert fixed_point_world.shape == (3,), "fixed_point_world must be a 3D point."
-
-        # Load sample data using existing get_batch logic
-        json_entry = self.dataset[idx]
-        data = torch.load(os.path.join(self.data_root, json_entry["path"]))
-        images = data["images"]
-        cameras_info = data["cameras"]
-        clip_name = json_entry["key"]
-        total_frames = json_entry["frame"]
-
-        # Sample frame indices
-        current_sample_stride = self.sample_stride
-        if total_frames < self.sample_n_frames * current_sample_stride:
-            maximum_sample_stride = int(total_frames // self.sample_n_frames)
-            current_sample_stride = max(1, maximum_sample_stride)
-
-        # print(
-        #     f"Using sample stride: {current_sample_stride} for total frames: {total_frames}"
-        # )
-        cropped_length = self.sample_n_frames * current_sample_stride
-        start_frame_ind = max(0, total_frames - cropped_length) // 2
-        end_frame_ind = min(start_frame_ind + cropped_length, total_frames)
-        frame_indices = np.linspace(
-            start_frame_ind, end_frame_ind - 1, self.sample_n_frames, dtype=int
-        )
-
-        # Decode images
-        pixel_values = [self.decode_image(images[i]) for i in frame_indices]
-        pixel_values = np.stack(pixel_values, axis=0)  # [F, H, W, C]
-        pixel_values = (
-            torch.from_numpy(pixel_values).permute(0, 3, 1, 2).contiguous() / 255.0
-        )
-
-        # Camera parameters
-        cameras_info = torch.concat(
-            [torch.zeros(cameras_info.shape[0], 1), cameras_info], dim=1
-        )
-        cam_params = [Camera(cameras_info[i]) for i in frame_indices]
-
-        if self.rescale_fxy:
-            ori_h, ori_w = pixel_values.shape[-2:]
-            ori_wh_ratio = ori_w / ori_h
-            if ori_wh_ratio > self.sample_wh_ratio:  # rescale fx
-                resized_ori_w = self.sample_size[0] * ori_wh_ratio
-                for cam_param in cam_params:
-                    cam_param.fx = resized_ori_w * cam_param.fx / self.sample_size[1]
-            else:  # rescale fy
-                resized_ori_h = self.sample_size[1] / ori_wh_ratio
-                for cam_param in cam_params:
-                    cam_param.fy = resized_ori_h * cam_param.fy / self.sample_size[0]
-
-        # Flipping
-        if self.use_flip:
-            flip_flag = self.pixel_transforms[1].get_flip_flag(self.sample_n_frames)
-        else:
-            flip_flag = torch.zeros(self.sample_n_frames, dtype=torch.bool)
-
-        # Apply pixel transforms
-        if self.use_flip:
-            images = self.pixel_transforms[0](pixel_values)
-            images = self.pixel_transforms[1](images, flip_flag)
-            # images = self.pixel_transforms[2](images)
-        else:
-            images = pixel_values
-            for transform in self.pixel_transforms:
-                images = transform(images)
-
-        images_np = (
-            ((images.permute(0, 2, 3, 1) * 0.5 + 0.5) * 255)
-            .clamp(0, 255)
-            .numpy()
-            .astype(np.uint8)
-        )
-        height, width = images_np.shape[1:3]
-
-        # Create save directory
-        os.makedirs(save_root, exist_ok=True)
-        video_filename = f"realestate10k_pose_{idx}_{clip_name}.avi"
-        video_path = os.path.join(save_root, video_filename)
-
-        video_writer = cv2.VideoWriter(
-            video_path, cv2.VideoWriter_fourcc(*"XVID"), 10, (width, height)
-        )
-
-        print(f"Generating visualization video for sample {idx} ({clip_name})")
-        print(f"Video will be saved to: {video_path}")
-
-        for frame_idx, img in enumerate(tqdm(images_np, desc="Writing frames")):
-            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            cam_param = cam_params[frame_idx]
-
-            K = np.array(
-                [
-                    [
-                        cam_param.fx * self.sample_size[1],
-                        0,
-                        cam_param.cx * self.sample_size[1],
-                    ],
-                    [
-                        0,
-                        cam_param.fy * self.sample_size[0],
-                        cam_param.cy * self.sample_size[0],
-                    ],
-                    [0, 0, 1],
-                ]
-            )
-            w2c = cam_param.w2c_mat
-
-            P_world_h = np.hstack([fixed_point_world, 1])
-            P_cam_h = w2c @ P_world_h
-            P_cam = P_cam_h[:3]
-
-            if P_cam[2] > 0:
-                p_img_h = K @ (P_cam / P_cam[2])
-                u, v = int(p_img_h[0]), int(p_img_h[1])
-                u = np.clip(u, 0, width - 1)
-                v = np.clip(v, 0, height - 1)
-
-                cv2.circle(img_bgr, (u, v), 5, (0, 0, 255), -1)
-                cv2.line(img_bgr, (u - 10, v), (u + 10, v), (0, 255, 0), 1)
-                cv2.line(img_bgr, (u, v - 10), (u, v + 10), (0, 255, 0), 1)
-
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(
-                img_bgr,
-                f"Frame {frame_idx+1}/{self.sample_n_frames}",
-                (10, 30),
-                font,
-                0.6,
-                (255, 255, 255),
-                1,
-            )
-            cam_pos = cam_param.c2w_mat[:3, 3]
-            cv2.putText(
-                img_bgr,
-                f"Cam pos: ({cam_pos[0]:.2f}, {cam_pos[1]:.2f}, {cam_pos[2]:.2f})",
-                (10, height - 30),
-                font,
-                0.5,
-                (255, 255, 255),
-                1,
-            )
-
-            video_writer.write(img_bgr)
-
-        video_writer.release()
-        print(f"Visualization saved to: {video_path}")
-
 
 if __name__ == "__main__":
-    # Example usage
-    save_root = "video/realestate10k_pose"
-    os.makedirs(save_root, exist_ok=True)
     dataset = RealEstate10KPose(
-        split="train",
-        sample_stride=7,
-        sample_n_frames=61,
+        data_root="demo_dataset/test_scenes",
+        split="test",
+        sample_stride=1,
+        sample_n_frames=9,
         relative_pose=True,
         sample_size=[320, 480],
         rescale_fxy=False,
@@ -601,7 +501,8 @@ if __name__ == "__main__":
             elif values[0] is None:
                 collated[key] = None
             else:
-                raise TypeError(f"Unsupported type for key '{key}': {type(values[0])}")
+                raise TypeError(
+                    f"Unsupported type for key '{key}': {type(values[0])}")
         return collated
 
     dataloader = torch.utils.data.DataLoader(

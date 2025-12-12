@@ -108,22 +108,19 @@ pip install numpy==1.26.4 peft accelerate==1.9.0 decord==0.6.0 deepspeed diffuse
 
 ### How to Get Input Depth (For Inference)
 
-We utilize [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything) to predict both image depth and video depth. For inference, only image depth is needed, so you could run VDA (Video Depth Anything) with a single image input. 
+We utilize [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything)(VDA) to predict both image depth and video depth. For inference, only image depth is needed, so you could run VDA with a single image input. 
 
 
 
 ### Checkpoints
 
-Get the checkpoints from the HuggingFace repo:&nbsp; [DualCamCtrl Checkpoints](https://huggingface.co/FayeHongfeiZhang/DualCamCtrl) and put it the checkpoints dir (You could just simply download the HF repo with a dir named 'checkpoints' in it.)
-```
-cd ../.. # make sure you are at the root dir 
-```
+Get the checkpoints from the HuggingFace repo:&nbsp; [DualCamCtrl Checkpoints](https://huggingface.co/FayeHongfeiZhang/DualCamCtrl) and put it the checkpoints dir (You could just simply download the HF repo which contains a dir named 'checkpoints'.)
 
-Your project structure should be like
+Your project structure should be like:
 
 ```
 DualCamCtrl/
-├── checkpoints/                 # ← Put downloaded .pt here
+├── checkpoints/                 # ← Put downloaded weight file here
 │   └── dualcamctrl_diffusion_transformer.pt
 ├── demo_dataset/                # Small demo dataset strcture
 ├── demo_pic/                    # Demo images for quick inference
@@ -159,7 +156,8 @@ python gradio/app.py # For Large Memory GPU
 
 ## 🔥 Training
 
-### Training details coming soon… Stay tuned! 🚀
+<!-- ### Training details coming soon… Stay tuned! 🚀  -->
+Please refer to [this document](train_script/training_details.md) for training.
 
 ## Citation
 If you find our work useful, please consider cite our work:
